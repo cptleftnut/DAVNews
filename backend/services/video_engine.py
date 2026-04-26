@@ -6,13 +6,26 @@ import os
 import uuid
 import textwrap
 
-from moviepy.editor import (
-    AudioFileClip,
-    ColorClip,
-    CompositeVideoClip,
-    TextClip,
-    concatenate_videoclips,
-)
+try:
+    # MoviePy 1.x
+    from moviepy.editor import (
+        AudioFileClip,
+        ColorClip,
+        CompositeVideoClip,
+        TextClip,
+        VideoFileClip,
+    )
+    _MOVIEPY_V2 = False
+except ImportError:
+    # MoviePy 2.x
+    from moviepy import (
+        AudioFileClip,
+        ColorClip,
+        CompositeVideoClip,
+        TextClip,
+        VideoFileClip,
+    )
+    _MOVIEPY_V2 = True
 
 from core.config import settings
 
@@ -66,21 +79,23 @@ def render_video(
 
     # --- Background ------------------------------------------------------
     if broll_path and os.path.isfile(broll_path):
-        from moviepy.editor import VideoFileClip
-
-        bg = VideoFileClip(broll_path).resize((width, height)).loop(duration=duration)
+        bg = VideoFileClip(broll_path).resized((width, height)) if _MOVIEPY_V2 else VideoFileClip(broll_path).resize((width, height))
+        bg = bg.loop(duration=duration)
     else:
-        bg = ColorClip(size=(width, height), color=(10, 15, 30)).set_duration(duration)
+        bg = ColorClip(size=(width, height), color=(10, 15, 30))
+        bg = bg.with_duration(duration) if _MOVIEPY_V2 else bg.set_duration(duration)
 
     # --- Subtitle overlays -----------------------------------------------
     subtitle_clips = _build_subtitle_clips(script_text, width, height, duration)
 
     # --- Compose ---------------------------------------------------------
     layers = [bg] + subtitle_clips
-    final = CompositeVideoClip(layers, size=(width, height)).set_duration(duration)
+    final = CompositeVideoClip(layers, size=(width, height))
+    final = final.with_duration(duration) if _MOVIEPY_V2 else final.set_duration(duration)
 
     if audio_clip is not None:
-        final = final.set_audio(audio_clip.subclip(0, min(audio_clip.duration, duration)))
+        trimmed = audio_clip.subclipped(0, min(audio_clip.duration, duration)) if _MOVIEPY_V2 else audio_clip.subclip(0, min(audio_clip.duration, duration))
+        final = final.with_audio(trimmed) if _MOVIEPY_V2 else final.set_audio(trimmed)
 
     final.write_videofile(
         out_path,
@@ -107,18 +122,32 @@ def _build_subtitle_clips(
 
     # English subtitle at bottom-center
     try:
-        en_sub = (
-            TextClip(
-                wrapped,
-                fontsize=36,
-                color="white",
-                font="DejaVu-Sans-Bold",
-                size=(width - 80, None),
-                method="caption",
+        if _MOVIEPY_V2:
+            en_sub = (
+                TextClip(
+                    text=wrapped,
+                    font_size=36,
+                    color="white",
+                    font="/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                    size=(width - 80, None),
+                    method="caption",
+                )
+                .with_position(("center", height - 350))
+                .with_duration(duration)
             )
-            .set_position(("center", height - 350))
-            .set_duration(duration)
-        )
+        else:
+            en_sub = (
+                TextClip(
+                    wrapped,
+                    fontsize=36,
+                    color="white",
+                    font="DejaVu-Sans-Bold",
+                    size=(width - 80, None),
+                    method="caption",
+                )
+                .set_position(("center", height - 350))
+                .set_duration(duration)
+            )
         clips.append(en_sub)
     except Exception:
         pass
@@ -132,16 +161,28 @@ def _build_subtitle_clips(
         if not label:
             continue
         try:
-            clip = (
-                TextClip(
-                    f"[{lang}] {label}",
-                    fontsize=20,
-                    color="#94a3b8",
-                    font="DejaVu-Sans",
+            if _MOVIEPY_V2:
+                clip = (
+                    TextClip(
+                        text=f"[{lang}] {label}",
+                        font_size=20,
+                        color="#94a3b8",
+                        font="/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                    )
+                    .with_position((40, y_offset))
+                    .with_duration(duration)
                 )
-                .set_position((40, y_offset))
-                .set_duration(duration)
-            )
+            else:
+                clip = (
+                    TextClip(
+                        f"[{lang}] {label}",
+                        fontsize=20,
+                        color="#94a3b8",
+                        font="DejaVu-Sans",
+                    )
+                    .set_position((40, y_offset))
+                    .set_duration(duration)
+                )
             clips.append(clip)
             y_offset += 30
         except Exception:
