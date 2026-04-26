@@ -25,6 +25,7 @@ except ImportError:
         TextClip,
         VideoFileClip,
     )
+    from moviepy import vfx as _vfx
     _MOVIEPY_V2 = True
 
 from core.config import settings
@@ -80,7 +81,7 @@ def render_video(
     # --- Background ------------------------------------------------------
     if broll_path and os.path.isfile(broll_path):
         bg = VideoFileClip(broll_path).resized((width, height)) if _MOVIEPY_V2 else VideoFileClip(broll_path).resize((width, height))
-        bg = bg.loop(duration=duration)
+        bg = bg.with_effects([_vfx.Loop(duration=duration)]) if _MOVIEPY_V2 else bg.loop(duration=duration)
     else:
         bg = ColorClip(size=(width, height), color=(10, 15, 30))
         bg = bg.with_duration(duration) if _MOVIEPY_V2 else bg.set_duration(duration)
