@@ -1,0 +1,17 @@
+version: "3.9"
+services:
+  backend:
+    build: ../backend
+    ports:
+      - "8000:8000"
+    environment:
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
+    volumes:
+      - ../backend/output:/app/output
+
+  frontend:
+    build: ../frontend
+    ports:
+      - "5173:5173"
